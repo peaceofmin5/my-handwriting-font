@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>나만의 손글씨 폰트 v0.1</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Noto Sans KR", sans-serif;
+    background: #f5f6f8;
+    color: #222;
+    touch-action: manipulation;
+  }
+  .app {
+    max-width: 900px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: white;
+  }
+  header {
+    padding: 18px 20px;
+    border-bottom: 1px solid #e5e5e5;
+    position: sticky;
+    top: 0;
+    background: rgba(255,255,255,.96);
+    z-index: 10;
+  }
+  header h1 { margin: 0 0 5px; font-size: 22px; }
+  header p { margin: 0; color: #666; font-size: 14px; }
+  main { padding: 20px; }
+  .step {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .badge {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: #222; color: white; font-weight: 700;
+  }
+  .step h2 { margin: 0; font-size: 19px; }
+  .hint { color: #666; font-size: 14px; margin: 0 0 16px; }
+  .target {
+    font-size: 52px;
+    font-weight: 700;
+    text-align: center;
+    margin: 5px 0 12px;
+  }
+  .canvas-wrap {
+    border: 2px solid #222;
+    border-radius: 18px;
+    background: #fff;
+    overflow: hidden;
+    position: relative;
+  }
+  canvas {
+    width: 100%;
+    height: min(52vh, 430px);
+    display: block;
+    background:
+      linear-gradient(#eee 1px, transparent 1px),
+      linear-gradient(90deg, #eee 1px, transparent 1px);
+    background-size: 25% 25%;
+    touch-action: none;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  button {
+    border: 0;
+    border-radius: 12px;
+    padding: 14px 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .secondary { background: #eceef1; color: #222; }
+  .primary { background: #222; color: #fff; }
+  button:disabled { opacity: .4; cursor: default; }
+  .progress {
+    height: 9px;
+    background: #e9eaed;
+    border-radius: 99px;
+    overflow: hidden;
+    margin: 12px 0 20px;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0%;
+    background: #222;
+    transition: width .2s;
+  }
+  .preview {
+    margin-top: 26px;
+    padding: 18px;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #fafafa;
+  }
+  .preview h3 { margin: 0 0 10px; }
+  .preview-text {
+    min-height: 90px;
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 30px;
+    line-height: 1.5;
+    word-break: keep-all;
+  }
+  .status {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background: #f0f1f3;
+    color: #444;
+    font-size: 14px;
+  }
+  .saved-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .saved-item {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 8px;
+    text-align: center;
+  }
+  .saved-item .char { font-size: 28px; }
+  .saved-item small { color: #777; }
+  .footer-note { color: #777; font-size: 12px; margin-top: 18px; }
+  @media (max-width: 600px) {
+    main { padding: 14px; }
+    header { padding: 15px; }
+    .target { font-size: 44px; }
+    canvas { height: 55vh; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>✍️ 나만의 손글씨 폰트</h1>
+    <p>Galaxy Tab + S Pen용 v0.1</p>
+  </header>
+
+  <main>
+    <div class="step">
+      <div class="badge">1</div>
+      <h2>기본 글자를 써보세요</h2>
+    </div>
+    <p class="hint">
+      아래 글자를 평소에 쓰는 방식대로 S Pen으로 한 번 써주세요.
+      v0.1에서는 손글씨 이미지를 기기에 저장하고 다음 글자로 넘어갑니다.
+    </p>
+
+    <div class="progress"><div id="progressBar"></div></div>
+    <div id="targetChar" class="target">ㄱ</div>
+
+    <div class="canvas-wrap">
+      <canvas id="pad"></canvas>
+    </div>
+
+    <div class="controls">
+      <button id="clearBtn" class="secondary">↺ 다시 쓰기</button>
+      <button id="saveBtn" class="primary">저장하고 다음 →</button>
+    </div>
+
+    <div id="status" class="status">준비되었습니다. S Pen으로 위의 글자를 써주세요.</div>
+
+    <div class="preview">
+      <h3>저장된 글자</h3>
+      <div id="savedList" class="saved-list"></div>
+    </div>
+
+    <div class="preview">
+      <h3>다음 단계 미리보기</h3>
+      <div class="preview-text">가나다라마바사<br>안녕하세요</div>
+      <p class="footer-note">
+        v0.1에서는 아직 실제 폰트(TTF)를 만들지 않습니다.
+        다음 버전에서 저장된 자모를 한글 조합 엔진과 연결합니다.
+      </p>
+    </div>
+  </main>
+</div>
+
+<script>
+const characters = [
+  "ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ",
+  "ㅏ","ㅑ","ㅓ","ㅕ","ㅗ","ㅛ","ㅜ","ㅠ","ㅡ","ㅣ"
+];
+
+const canvas = document.getElementById("pad");
+const ctx = canvas.getContext("2d");
+const targetChar = document.getElementById("targetChar");
+const progressBar = document.getElementById("progressBar");
+const statusBox = document.getElementById("status");
+const savedList = document.getElementById("savedList");
+const clearBtn = document.getElementById("clearBtn");
+const saveBtn = document.getElementById("saveBtn");
+
+let index = 0;
+let drawing = false;
+let hasInk = false;
+let saved = JSON.parse(localStorage.getItem("myHandwritingV01") || "{}");
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.round(rect.width * ratio);
+  canvas.height = Math.round(rect.height * ratio);
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "#111";
+}
+window.addEventListener("resize", resizeCanvas);
+
+function clearCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  hasInk = false;
+}
+
+function position(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top
+  };
+}
+
+canvas.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  drawing = true;
+  hasInk = true;
+  canvas.setPointerCapture(e.pointerId);
+  const p = position(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+});
+
+canvas.addEventListener("pointermove", e => {
+  if (!drawing) return;
+  e.preventDefault();
+  const p = position(e);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+});
+
+function stopDrawing() {
+  if (drawing) ctx.closePath();
+  drawing = false;
+}
+canvas.addEventListener("pointerup", stopDrawing);
+canvas.addEventListener("pointercancel", stopDrawing);
+canvas.addEventListener("pointerleave", stopDrawing);
+
+function renderSaved() {
+  savedList.innerHTML = "";
+  const keys = Object.keys(saved);
+  if (!keys.length) {
+    savedList.innerHTML = "<div style='color:#777;grid-column:1/-1'>아직 저장된 글자가 없습니다.</div>";
+    return;
+  }
+
+  keys.forEach(ch => {
+    const item = document.createElement("div");
+    item.className = "saved-item";
+    item.innerHTML = `<div class="char">${ch}</div><small>저장됨</small>`;
+    savedList.appendChild(item);
+  });
+}
+
+function updateScreen() {
+  if (index >= characters.length) {
+    targetChar.textContent = "완료!";
+    progressBar.style.width = "100%";
+    saveBtn.disabled = true;
+    statusBox.textContent = "기본 자모 입력이 끝났습니다. v0.1 데이터가 이 기기에 저장되었습니다.";
+    clearCanvas();
+    return;
+  }
+
+  targetChar.textContent = characters[index];
+  progressBar.style.width = `${(index / characters.length) * 100}%`;
+  statusBox.textContent = `${index + 1} / ${characters.length}번째 글자입니다.`;
+  clearCanvas();
+}
+
+clearBtn.addEventListener("click", () => {
+  clearCanvas();
+  statusBox.textContent = "지웠습니다. 다시 써주세요.";
+});
+
+saveBtn.addEventListener("click", () => {
+  if (!hasInk) {
+    statusBox.textContent = "먼저 글자를 써주세요.";
+    return;
+  }
+
+  const ch = characters[index];
+  saved[ch] = canvas.toDataURL("image/png");
+  localStorage.setItem("myHandwritingV01", JSON.stringify(saved));
+
+  statusBox.textContent = `"${ch}" 저장 완료!`;
+  renderSaved();
+
+  index++;
+  setTimeout(updateScreen, 250);
+});
+
+resizeCanvas();
+renderSaved();
+updateScreen();
+</script>
+</body>
+</html>
